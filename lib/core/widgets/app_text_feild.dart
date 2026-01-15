@@ -8,6 +8,8 @@ class AppTextField extends StatelessWidget {
   final int maxLines;
   final bool isPassword;
   final TextEditingController controller;
+  final TextInputType? keyboardType; // ← add this
+  final String? Function(String?)? validator; //
 
   const AppTextField({
     super.key,
@@ -17,6 +19,8 @@ class AppTextField extends StatelessWidget {
     required this.hintText,
     this.isPassword = false,
     required this.controller,
+    this.keyboardType,
+    this.validator,
   });
 
   @override
@@ -24,6 +28,7 @@ class AppTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       obscureText: isPassword,
+      keyboardType: keyboardType, // ← forward it
       cursorColor: AppColors.accent,
       decoration: InputDecoration(
         hintText: hintText,
