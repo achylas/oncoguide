@@ -51,7 +51,6 @@ class DashboardContent extends StatelessWidget {
     return Column(
       children: [
         EnhancedTopBar(
-          doctorName: doctorName,
           onProfileTap: () => Navigator.pushNamed(context, '/profile'),
           onNotificationTap: () =>
               Navigator.pushNamed(context, '/notifications'),

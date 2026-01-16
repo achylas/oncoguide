@@ -3,15 +3,110 @@ import 'package:oncoguide_frontend/core/conts/colors.dart';
 import 'package:oncoguide_frontend/core/widgets/app_text_feild.dart';
 import '../../widgets/primary_button.dart';
 import '../../utils/animations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class SignupScreen extends StatelessWidget {
-  SignupScreen({super.key});
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  Future<void> signUpDoctor({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    // 1. Create user in Firebase Auth
+    UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    final uid = userCredential.user!.uid;
+
+    // 2. Store doctor data in Firestore
+    await _firestore.collection('doctors').doc(uid).set({
+      'uid': uid,
+      'name': name,
+      'email': email,
+      'role': 'doctor',
+      'createdAt': FieldValue.serverTimestamp(),
+      'isActive': true,
+    });
+  }
+}
+
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
+
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
+
+  bool isLoading = false;
+
+  final AuthService _authService = AuthService();
+
+  void handleSignUp() async {
+    final name = nameController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+    final confirmPassword = confirmPasswordController.text;
+
+    if (name.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("All fields are required")));
+      return;
+    }
+
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Passwords do not match")));
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      await _authService.signUpDoctor(
+        name: name,
+        email: email,
+        password: password,
+      );
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Sign up successful!")));
+
+      Navigator.pop(context); // Go back to login page
+    } on FirebaseAuthException catch (e) {
+      String message = "An error occurred";
+      if (e.code == 'email-already-in-use') {
+        message = "Email is already in use";
+      } else if (e.code == 'weak-password') {
+        message = "Password is too weak";
+      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Something went wrong")));
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -148,14 +243,8 @@ class SignupScreen extends StatelessWidget {
                     Animations.slideUp(
                       delay: 1000,
                       child: PrimaryButton(
-                        text: "Sign Up",
-                        onPressed: () {
-                          // Add signup logic here
-                          print("Name: ${nameController.text}");
-                          print("Email: ${emailController.text}");
-                          print("Password: ${passwordController.text}");
-                          print("Confirm: ${confirmPasswordController.text}");
-                        },
+                        text: isLoading ? "Signing Up..." : "Sign Up",
+                        onPressed: isLoading ? null : handleSignUp,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -165,7 +254,7 @@ class SignupScreen extends StatelessWidget {
                       delay: 1100,
                       child: TextButton(
                         onPressed: () {
-                          Navigator.pop(context); // Go back to login page
+                          Navigator.pop(context);
                         },
                         child: const Text(
                           "Already have an account? Login",

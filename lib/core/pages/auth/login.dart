@@ -1,17 +1,71 @@
 import 'package:flutter/material.dart';
 import 'package:oncoguide_frontend/core/pages/auth/signup_screen.dart';
+import 'package:oncoguide_frontend/core/pages/dashboard/dashboard_screen.dart';
 import 'package:oncoguide_frontend/core/widgets/app_text_feild.dart';
 import '../../conts/colors.dart';
 import '../../widgets/primary_button.dart';
 import '../../utils/animations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-import '../dashboard/dashboard_screen.dart'; // <- Import Dashboard
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
-class LoginScreen extends StatelessWidget {
-  LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
 
+class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  bool isLoading = false;
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  void handleLogin() async {
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("All fields are required")));
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Successfully logged in, navigate to dashboard
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const DashboardScreen(),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = "An error occurred";
+      if (e.code == 'user-not-found') {
+        message = "No user found for this email";
+      } else if (e.code == 'wrong-password') {
+        message = "Incorrect password";
+      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Something went wrong")));
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +111,7 @@ class LoginScreen extends StatelessWidget {
             ),
           ),
 
-          // Centered login card
+          // Login card
           Center(
             child: Container(
               width: size.width * 0.85,
@@ -122,20 +176,12 @@ class LoginScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Login Button -> Navigate to Dashboard
+                  // Login Button
                   Animations.slideUp(
                     delay: 800,
                     child: PrimaryButton(
-                      text: "Login",
-                      onPressed: () {
-                        // Here, navigate to DashboardScreen
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const DashboardScreen(),
-                          ),
-                        );
-                      },
+                      text: isLoading ? "Signing In..." : "Login",
+                      onPressed: isLoading ? null : handleLogin,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -144,7 +190,9 @@ class LoginScreen extends StatelessWidget {
                   Animations.fadeIn(
                     delay: 900,
                     child: TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        // TODO: Add password reset functionality
+                      },
                       child: const Text(
                         "Forgot Password?",
                         style: TextStyle(color: AppColors.accent),
@@ -169,7 +217,7 @@ class LoginScreen extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => SignupScreen(),
+                                builder: (context) => const SignupScreen(),
                               ),
                             );
                           },

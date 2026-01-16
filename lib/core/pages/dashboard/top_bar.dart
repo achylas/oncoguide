@@ -1,17 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:oncoguide_frontend/core/conts/colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class EnhancedTopBar extends StatelessWidget {
-  final String doctorName;
+class EnhancedTopBar extends StatefulWidget {
   final VoidCallback onProfileTap;
   final VoidCallback onNotificationTap;
 
   const EnhancedTopBar({
     super.key,
-    required this.doctorName,
     required this.onProfileTap,
     required this.onNotificationTap,
   });
+
+  @override
+  State<EnhancedTopBar> createState() => _EnhancedTopBarState();
+}
+
+class _EnhancedTopBarState extends State<EnhancedTopBar> {
+  String _doctorName = "Doctor";
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDoctorName();
+  }
+
+  Future<void> _loadDoctorName() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return;
+
+      final doc = await _firestore.collection('doctors').doc(user.uid).get();
+      if (doc.exists && doc.data() != null) {
+        setState(() {
+          _doctorName = doc.data()!['name'] ?? "Doctor";
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint("Error loading doctor name: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +67,7 @@ class EnhancedTopBar extends StatelessWidget {
           child: Row(
             children: [
               GestureDetector(
-                onTap: onProfileTap,
+                onTap: widget.onProfileTap,
                 child: Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
@@ -68,15 +102,21 @@ class EnhancedTopBar extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    Text(
-                      doctorName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
+                    _isLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 100,
+                            child: LinearProgressIndicator(),
+                          )
+                        : Text(
+                            _doctorName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
                   ],
                 ),
               ),
@@ -94,13 +134,13 @@ class EnhancedTopBar extends StatelessWidget {
                 ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
-                  onTap: onNotificationTap,
+                  onTap: widget.onNotificationTap,
                   child: Padding(
                     padding: const EdgeInsets.all(10),
                     child: Stack(
                       children: [
                         IconButton(
-                          icon: Icon(Icons.settings),
+                          icon: const Icon(Icons.settings),
                           onPressed: () {
                             Navigator.pushNamed(context, '/settings');
                           },

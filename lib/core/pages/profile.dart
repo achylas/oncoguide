@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart'; // pubspec.yaml: animate_do: ^3.3.4 or latest
-import 'package:oncoguide_frontend/core/conts/colors.dart'; // Assuming this is your AppColors file
+import 'package:animate_do/animate_do.dart';
+import 'package:oncoguide_frontend/core/conts/colors.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DoctorProfileScreen extends StatefulWidget {
   const DoctorProfileScreen({super.key});
@@ -11,29 +13,92 @@ class DoctorProfileScreen extends StatefulWidget {
 
 class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
   bool _isEditing = false;
+  bool _isLoading = true;
 
-  // Controllers with initial values
-  final TextEditingController _nameController =
-      TextEditingController(text: "Dr. Sarah Jenkins");
-  final TextEditingController _phoneController =
-      TextEditingController(text: "+1 234 567 890");
-  final TextEditingController _specController =
-      TextEditingController(text: "Oncology Specialist");
-  final TextEditingController _emailController =
-      TextEditingController(text: "s.jenkins@medical.com");
-  final TextEditingController _bioController = TextEditingController(
-    text:
-        "Dedicated breast cancer specialist with 12+ years of experience in early detection, personalized treatment strategies, and patient-centered care. Passionate about combining medical excellence with emotional support.",
-  );
+  // Controllers
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _specController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  late String _uid;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDoctorData();
+  }
+
+  Future<void> _loadDoctorData() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw Exception("User not logged in");
+      _uid = user.uid;
+
+      final doc = await _firestore.collection('doctors').doc(_uid).get();
+
+      if (!doc.exists) throw Exception("Doctor data not found");
+
+      final data = doc.data()!;
+      setState(() {
+        _nameController.text = data['name'] ?? '';
+        _phoneController.text = data['phone'] ?? '';
+        _specController.text = data['specialization'] ?? '';
+        _emailController.text = data['email'] ?? '';
+        _bioController.text = data['bio'] ?? '';
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error loading profile: $e")),
+      );
+    }
+  }
+
+  Future<void> _saveDoctorData() async {
+    try {
+      setState(() => _isLoading = true);
+
+      await _firestore.collection('doctors').doc(_uid).update({
+        'name': _nameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'specialization': _specController.text.trim(),
+        'bio': _bioController.text.trim(),
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("Profile updated successfully"),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error updating profile: $e")),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Subtle animated background gradient
           FadeIn(
             duration: const Duration(milliseconds: 1200),
             child: Container(
@@ -50,20 +115,14 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
               ),
             ),
           ),
-
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
                 children: [
                   const SizedBox(height: 16),
-
-                  // Enhanced Header with animations
                   _buildEnhancedHeader(),
-
                   const SizedBox(height: 32),
-
-                  // Quick Stats with staggered animation
                   FadeInUp(
                     duration: const Duration(milliseconds: 800),
                     child: Padding(
@@ -71,10 +130,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                       child: _buildQuickStats(),
                     ),
                   ),
-
                   const SizedBox(height: 36),
-
-                  // Profile Details with glass-like cards & animations
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -82,60 +138,42 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                       children: [
                         _buildSectionLabel("Professional Identity"),
                         const SizedBox(height: 12),
-                        FadeInLeft(
-                          duration: const Duration(milliseconds: 900),
-                          child: _buildDetailCard(
-                            "Full Name",
-                            _nameController,
-                            Icons.person_outline_rounded,
-                          ),
+                        _buildDetailCard(
+                          "Full Name",
+                          _nameController,
+                          Icons.person_outline_rounded,
                         ),
                         const SizedBox(height: 16),
-                        FadeInRight(
-                          duration: const Duration(milliseconds: 1000),
-                          child: _buildDetailCard(
-                            "Specialization",
-                            _specController,
-                            Icons.medical_services_rounded,
-                          ),
+                        _buildDetailCard(
+                          "Specialization",
+                          _specController,
+                          Icons.medical_services_rounded,
                         ),
                         const SizedBox(height: 32),
-
                         _buildSectionLabel("Contact Information"),
                         const SizedBox(height: 12),
-                        FadeInLeft(
-                          duration: const Duration(milliseconds: 1100),
-                          child: _buildDetailCard(
-                            "Phone Number",
-                            _phoneController,
-                            Icons.phone_rounded,
-                          ),
+                        _buildDetailCard(
+                          "Phone Number",
+                          _phoneController,
+                          Icons.phone_rounded,
                         ),
                         const SizedBox(height: 16),
-                        FadeInRight(
-                          duration: const Duration(milliseconds: 1200),
-                          child: _buildDetailCard(
-                            "Email Address",
-                            _emailController,
-                            Icons.email_rounded,
-                          ),
+                        _buildDetailCard(
+                          "Email Address",
+                          _emailController,
+                          Icons.email_rounded,
                         ),
                         const SizedBox(height: 32),
-
                         _buildSectionLabel("Professional Biography"),
                         const SizedBox(height: 12),
-                        FadeInUp(
-                          duration: const Duration(milliseconds: 1300),
-                          child: _buildDetailCard(
-                            "About Me",
-                            _bioController,
-                            Icons.description_rounded,
-                            maxLines: 5,
-                            minLines: 4,
-                          ),
+                        _buildDetailCard(
+                          "About Me",
+                          _bioController,
+                          Icons.description_rounded,
+                          maxLines: 5,
+                          minLines: 4,
                         ),
-
-                        const SizedBox(height: 100), // Space for FAB
+                        const SizedBox(height: 100),
                       ],
                     ),
                   ),
@@ -145,49 +183,31 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
           ),
         ],
       ),
-
-      // Enhanced FAB with scale animation
-      floatingActionButton: ScaleTransition(
-        scale: Tween<double>(begin: 0.9, end: 1.0).animate(
-          CurvedAnimation(
-            parent: AlwaysStoppedAnimation(1.0),
-            curve: Curves.elasticOut,
-          ),
-        ),
-        child: FloatingActionButton.extended(
-          onPressed: () {
-            if (_isEditing) {
-              // You can add save logic here (e.g. call API, show snackbar)
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text("Profile updated successfully"),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            }
-            setState(() => _isEditing = !_isEditing);
-          },
-          backgroundColor: _isEditing ? AppColors.success : AppColors.primary,
-          elevation: 8,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-          icon: Icon(_isEditing ? Icons.save_rounded : Icons.edit_rounded),
-          label: Text(
-            _isEditing ? "Save Changes" : "Edit Profile",
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          if (_isEditing) {
+            _saveDoctorData();
+          }
+          setState(() => _isEditing = !_isEditing);
+        },
+        backgroundColor: _isEditing ? AppColors.success : AppColors.primary,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        icon: Icon(_isEditing ? Icons.save_rounded : Icons.edit_rounded),
+        label: Text(_isEditing ? "Save Changes" : "Edit Profile",
+            style: const TextStyle(fontWeight: FontWeight.w600)),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
+
+  // ------------------ UI Helpers ------------------
 
   Widget _buildEnhancedHeader() {
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
       children: [
-        // Curved background with subtle wave
         ClipPath(
           clipper: HeaderWaveClipper(),
           child: Container(
@@ -204,8 +224,6 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
             ),
           ),
         ),
-
-        // Decorative floating elements
         Positioned(
           top: 40,
           right: 30,
@@ -221,7 +239,6 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
             ),
           ),
         ),
-
         Positioned(
           top: 90,
           left: 40,
@@ -237,13 +254,9 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
             ),
           ),
         ),
-
-        // Main profile content
         Column(
           children: [
             const SizedBox(height: 50),
-
-            // Avatar with glow & edit overlay
             ZoomIn(
               duration: const Duration(milliseconds: 1000),
               child: Stack(
@@ -270,7 +283,6 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                         backgroundImage: const NetworkImage(
                           'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
                         ),
-                        // Alternative: 'https://i.pravatar.cc/300?img=45'
                       ),
                     ),
                   ),
@@ -306,14 +318,9 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
-
-            // Name with elegant typography
           ],
         ),
-
-        // Back button
         Positioned(
           top: 16,
           left: 16,
@@ -374,17 +381,13 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                color: accentColor,
-                size: 24, // smaller icon
-              ),
+              Icon(icon, color: accentColor, size: 24),
               const SizedBox(height: 6),
               Text(
                 value,
                 style: TextStyle(
                   color: Colors.black87,
-                  fontSize: 20, // reduced from 26
+                  fontSize: 20,
                   fontWeight: FontWeight.w800,
                   height: 1.0,
                 ),
@@ -394,7 +397,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                 label,
                 style: TextStyle(
                   color: Colors.black54,
-                  fontSize: 11.5, // smaller label text
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
@@ -415,6 +418,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
     int maxLines = 1,
     int minLines = 1,
   }) {
+    final isEmailField = label.toLowerCase().contains("email");
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
@@ -426,16 +430,6 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
           color: _isEditing ? Color(0xFFE91E63) : AppColors.border,
           width: _isEditing ? 2.5 : 1.2,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: _isEditing
-                ? AppColors.primary.withOpacity(0.18)
-                : AppColors.shadowLight,
-            blurRadius: _isEditing ? 16 : 10,
-            spreadRadius: _isEditing ? 2 : 0,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: Row(
         crossAxisAlignment:
@@ -447,11 +441,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
               gradient: AppColors.primaryGradient,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              icon,
-              color: Color.fromARGB(255, 255, 255, 255),
-              size: 26,
-            ),
+            child: Icon(icon, color: Colors.white, size: 26),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -470,7 +460,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: controller,
-                  enabled: _isEditing,
+                  enabled: _isEditing && !isEmailField,
                   maxLines: maxLines,
                   minLines: minLines,
                   style: TextStyle(
@@ -509,7 +499,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
   }
 }
 
-// Custom clipper for wave header
+// ---------------- Custom clipper ----------------
 class HeaderWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {

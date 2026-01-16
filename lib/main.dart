@@ -6,7 +6,6 @@ import 'package:oncoguide_frontend/core/pages/auth/login.dart';
 import 'package:oncoguide_frontend/core/pages/dashboard/dashboard_screen.dart';
 import 'package:oncoguide_frontend/core/pages/new_analysis/screens/new_analysis_screen.dart';
 import 'package:oncoguide_frontend/core/pages/quickaccess/addpatient.dart';
-import 'package:oncoguide_frontend/core/pages/new_analysis/screens/scan_result.dart';
 import 'package:oncoguide_frontend/core/pages/settings.dart';
 import 'package:oncoguide_frontend/firebase_options.dart';
 import 'package:provider/provider.dart';
@@ -35,7 +34,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: const DashboardScreen(),
+      home: const LandingPage(),
       routes: {
         '/login': (context) => LoginScreen(),
         '/add_patient': (context) => const AddPatientScreen(),

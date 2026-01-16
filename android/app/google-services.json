@@ -7,26 +7,7 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:368815703592:android:701bba728384d1b983171d",
-        "android_client_info": {
-          "package_name": "com.company.oncoguide"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDFoAxxxxzC8eSoKnNUeQ8xskJjsZS-U5Q"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:368815703592:android:2e46f474b7cb65d583171d",
+        "mobilesdk_app_id": "1:368815703592:android:e79cb7ac546aa59f83171d",
         "android_client_info": {
           "package_name": "com.example.oncoguide_frontend"
         }
